@@ -102,5 +102,11 @@ with the real schema.
 
 ## Current Status
 
-Update this section as work progresses so an agent picking up the project mid-way
-knows what's already built vs. still pending. See `PLAN.md` for the full roadmap.
+Phase 0 package setup is complete. Flutter 3.47.2 is installed and a physical
+Android device is detected. Android SDK licenses still need to be accepted.
+
+Phase 1 auth shell is implemented under `lib/`: Supabase startup configuration,
+email sign-up/sign-in, guarded routes, session-aware navigation, and sign-out.
+Run the app with `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the public publishable
+key) supplied through `--dart-define`. Live auth verification and the database
+schema/RLS setup are still pending.

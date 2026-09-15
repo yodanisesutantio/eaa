@@ -14,18 +14,21 @@ A Flutter + Supabase mobile app (personal use, sideloaded on Android) to:
 ## Phases
 
 ### Phase 0 — Environment Setup (~1–2 hrs)
-- [ ] Install Flutter SDK, Android Studio (SDK + AVD), VSCode Flutter/Dart extensions
-- [ ] `flutter doctor` clean
-- [ ] Create Supabase project, run schema SQL, enable RLS policy
-- [ ] `flutter create expense_tracker`, add core packages
+- [x] Install Flutter SDK and Android Studio SDK; physical Android phone detected
+- [ ] Accept Android SDK licenses; VSCode Flutter/Dart extensions not yet verified
+- [ ] `flutter doctor` clean (currently blocked by Android licenses; Visual Studio is irrelevant for Android)
+- [x] Create Supabase project (`gvjpgrjrftihfpabhhzh`)
+- [ ] Run schema SQL and enable the RLS policy
+- [x] Add core packages
   (`supabase_flutter`, `flutter_riverpod`, `go_router`, `fl_chart`, `intl`)
 - [ ] Confirm `flutter run` works on emulator and physical phone
 
 ### Phase 1 — Auth (~4–6 hrs)
-- [ ] Initialize Supabase client at app startup (via `--dart-define`, not hardcoded)
-- [ ] Sign-up / sign-in screen (email or OAuth)
-- [ ] Session persistence and route guarding with `go_router`
-- [ ] Sign-out flow
+- [x] Initialize Supabase client at app startup (via `--dart-define`, not hardcoded)
+- [x] Sign-up / sign-in screen (email/password)
+- [x] Session persistence and route guarding with `go_router`
+- [x] Sign-out flow
+- [ ] Verify auth against the live Supabase project
 
 ### Phase 2 — Add Transaction (~4–6 hrs)
 - [ ] Form: amount, type toggle (expense/income), category, note, date
