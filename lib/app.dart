@@ -3,13 +3,17 @@ import 'package:go_router/go_router.dart';
 
 import 'features/auth/auth_screen.dart';
 import 'features/home/home_screen.dart';
+import 'features/transactions/screens/add_transaction_screen.dart';
 import 'core/supabase_client.dart';
 import 'core/theme.dart';
+import 'core/app_settings.dart';
+import 'features/settings/settings_screen.dart';
 
 class ExpenseApp extends StatefulWidget {
-  const ExpenseApp({super.key, this.startupError});
+  const ExpenseApp({super.key, this.startupError, required this.settings});
 
   final Object? startupError;
+  final AppSettings settings;
 
   @override
   State<ExpenseApp> createState() => _ExpenseAppState();
@@ -28,6 +32,15 @@ class _ExpenseAppState extends State<ExpenseApp> {
     routes: [
       GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
       GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+      GoRoute(
+        path: '/transactions/add',
+        builder: (context, state) =>
+            AddTransactionScreen(settings: widget.settings),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => SettingsScreen(settings: widget.settings),
+      ),
     ],
   );
 
@@ -39,18 +52,27 @@ class _ExpenseAppState extends State<ExpenseApp> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.startupError != null) {
-      return MaterialApp(
-        title: 'Expense Tracker',
-        theme: AppTheme.light(),
-        home: StartupErrorScreen(error: widget.startupError!),
-      );
-    }
-
-    return MaterialApp.router(
-      title: 'Expense Tracker',
-      theme: AppTheme.light(),
-      routerConfig: _router,
+    return AnimatedBuilder(
+      animation: widget.settings,
+      builder: (context, child) {
+        final theme = widget.settings.appearance == 'dark'
+            ? AppTheme.dark()
+            : AppTheme.light();
+        if (widget.startupError != null) {
+          return MaterialApp(
+            title: 'Expense Tracker',
+            theme: theme,
+            locale: Locale(widget.settings.languageCode),
+            home: StartupErrorScreen(error: widget.startupError!),
+          );
+        }
+        return MaterialApp.router(
+          title: 'Expense Tracker',
+          theme: theme,
+          locale: Locale(widget.settings.languageCode),
+          routerConfig: _router,
+        );
+      },
     );
   }
 }

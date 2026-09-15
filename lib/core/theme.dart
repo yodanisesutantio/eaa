@@ -82,4 +82,84 @@ abstract final class AppTheme {
       dividerTheme: const DividerThemeData(color: border),
     );
   }
+
+  static ThemeData dark() {
+    const darkBackground = Color(0xFF09090B);
+    const darkSurface = Color(0xFF18181B);
+    const darkForeground = Color(0xFFFAFAFA);
+    const darkMutedForeground = Color(0xFFA1A1AA);
+    const darkBorder = Color(0xFF27272A);
+    final colorScheme = const ColorScheme.dark(
+      surface: darkBackground,
+      onSurface: darkForeground,
+      primary: darkForeground,
+      onPrimary: Color(0xFF18181B),
+      secondary: Color(0xFFA1A1AA),
+      onSecondary: Color(0xFF18181B),
+      outline: darkBorder,
+      error: Color(0xFFF97066),
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: darkBackground,
+      fontFamily: 'sans-serif',
+      textTheme: const TextTheme(
+        headlineMedium: TextStyle(
+          color: darkForeground,
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+        ),
+        titleLarge: TextStyle(
+          color: darkForeground,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        bodyMedium: TextStyle(color: darkForeground, fontSize: 14),
+        bodySmall: TextStyle(color: darkMutedForeground, fontSize: 12),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: darkSurface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: darkBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: darkBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: darkForeground, width: 1.5),
+        ),
+        labelStyle: const TextStyle(color: darkMutedForeground, fontSize: 14),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(40),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: darkMutedForeground,
+          textStyle: const TextStyle(fontSize: 13),
+        ),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: darkBackground,
+        foregroundColor: darkForeground,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      dividerTheme: const DividerThemeData(color: darkBorder),
+    );
+  }
 }

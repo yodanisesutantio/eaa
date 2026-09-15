@@ -67,6 +67,7 @@ create table transactions (
   user_id uuid references auth.users not null,
   type text check (type in ('expense', 'income')) not null,
   amount numeric not null,
+  currency text not null default 'USD',
   category text,
   note text,
   occurred_at date not null default current_date,
