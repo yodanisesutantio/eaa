@@ -62,7 +62,10 @@ class SettingsScreen extends StatelessWidget {
                     .map(
                       (entry) => DropdownMenuItem(
                         value: entry.key,
-                        child: Text(entry.value),
+                        child: _LanguageOption(
+                          label: entry.value,
+                          isBeta: entry.key != 'en' && entry.key != 'id',
+                        ),
                       ),
                     )
                     .toList(),
@@ -98,6 +101,42 @@ class SettingsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LanguageOption extends StatelessWidget {
+  const _LanguageOption({required this.label, required this.isBeta});
+
+  final String label;
+  final bool isBeta;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label),
+        if (isBeta) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
+            ),
+            child: Text(
+              'BETA',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -8,6 +8,9 @@ class AppSettings extends ChangeNotifier {
     'en': 'English',
     'fr': 'French',
     'es': 'Spanish',
+    'de': 'Deutsch',
+    'ko': 'Korean',
+    'id': 'Indonesian',
   };
 
   static const supportedCurrencies = {
@@ -16,6 +19,31 @@ class AppSettings extends ChangeNotifier {
     'GBP': 'British Pound',
     'CAD': 'Canadian Dollar',
     'JPY': 'Japanese Yen',
+    'AUD': 'Australian Dollar',
+    'CHF': 'Swiss Franc',
+    'CNY': 'Chinese Yuan',
+    'HKD': 'Hong Kong Dollar',
+    'NZD': 'New Zealand Dollar',
+    'SGD': 'Singapore Dollar',
+    'INR': 'Indian Rupee',
+    'KRW': 'South Korean Won',
+    'IDR': 'Indonesian Rupiah',
+    'BRL': 'Brazilian Real',
+    'MXN': 'Mexican Peso',
+    'ZAR': 'South African Rand',
+    'SEK': 'Swedish Krona',
+    'NOK': 'Norwegian Krone',
+    'DKK': 'Danish Krone',
+    'PLN': 'Polish Zloty',
+    'CZK': 'Czech Koruna',
+    'HUF': 'Hungarian Forint',
+    'TRY': 'Turkish Lira',
+    'AED': 'UAE Dirham',
+    'SAR': 'Saudi Riyal',
+    'THB': 'Thai Baht',
+    'MYR': 'Malaysian Ringgit',
+    'PHP': 'Philippine Peso',
+    'VND': 'Vietnamese Dong',
   };
 
   static const supportedAppearances = {'light': 'Light', 'dark': 'Dark'};

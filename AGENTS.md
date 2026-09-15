@@ -83,6 +83,9 @@ create policy "Users can manage their own transactions"
 If new tables or columns are added, update this section so agents stay in sync
 with the real schema.
 
+The currency column should accept the supported ISO codes defined in
+`lib/core/app_settings.dart`.
+
 ## Commands
 
 - Run app on connected device/emulator: `flutter run`

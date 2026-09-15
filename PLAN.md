@@ -20,6 +20,7 @@ A Flutter + Supabase mobile app (personal use, sideloaded on Android) to:
 - [x] Create Supabase project (`gvjpgrjrftihfpabhhzh`)
 - [x] Run schema SQL and enable the RLS policy (confirmed)
 - [ ] Add `currency text not null default 'USD'` to `transactions` and update the schema
+  constraint to accept the supported ISO codes in `lib/core/app_settings.dart`
 - [x] Add core packages
   (`supabase_flutter`, `flutter_riverpod`, `go_router`, `fl_chart`, `intl`)
 - [ ] Confirm `flutter run` works on emulator and physical phone

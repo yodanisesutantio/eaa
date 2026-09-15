@@ -19,23 +19,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: Builder(
+          builder: (context) => IconButton(
+            tooltip: 'Open menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: const Icon(Icons.menu_rounded),
+          ),
+        ),
         title: const Text('Overview'),
-        actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            onPressed: () async {
-              await supabase.auth.signOut();
-              if (context.mounted) context.go('/auth');
-            },
-            icon: const Icon(Icons.logout_rounded),
-          ),
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: () => context.push('/settings'),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-        ],
       ),
+      drawer: const _AppDrawer(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/transactions/add'),
         icon: const Icon(Icons.add_rounded),
@@ -116,6 +109,171 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AppDrawer extends StatelessWidget {
+  const _AppDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    final user = supabase.auth.currentUser;
+    final email = user?.email ?? 'Account';
+    final initial = email.isNotEmpty ? email[0].toUpperCase() : 'A';
+
+    return Drawer(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                onSelected: (value) => _handleProfileAction(context, value),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'profile', child: Text('Profile')),
+                  PopupMenuItem(value: 'settings', child: Text('Settings')),
+                  PopupMenuDivider(),
+                  PopupMenuItem(value: 'signout', child: Text('Sign out')),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.border),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        child: Text(
+                          initial,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.expand_more_rounded, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              _DrawerLabel(label: 'Menu'),
+              _DrawerItem(
+                icon: Icons.dashboard_outlined,
+                label: 'Overview',
+                selected: true,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+              const SizedBox(height: 24),
+              _DrawerLabel(label: 'More'),
+              _DrawerItem(
+                icon: Icons.info_outline_rounded,
+                label: 'About',
+                onTap: () => _showComingSoon(context, 'About'),
+              ),
+              _DrawerItem(
+                icon: Icons.help_outline_rounded,
+                label: 'Help & Feedback',
+                onTap: () => _showComingSoon(context, 'Help & Feedback'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleProfileAction(BuildContext context, String value) {
+    switch (value) {
+      case 'settings':
+        Navigator.of(context).pop();
+        context.push('/settings');
+      case 'profile':
+        _showComingSoon(context, 'Profile');
+      case 'signout':
+        _signOut(context);
+    }
+  }
+
+  Future<void> _signOut(BuildContext context) async {
+    Navigator.of(context).pop();
+    await supabase.auth.signOut();
+    if (context.mounted) context.go('/auth');
+  }
+
+  void _showComingSoon(BuildContext context, String label) {
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$label is coming soon.')));
+  }
+}
+
+class _DrawerLabel extends StatelessWidget {
+  const _DrawerLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  const _DrawerItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ListTile(
+      dense: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      selected: selected,
+      selectedTileColor: colors.surfaceContainerHighest,
+      leading: Icon(icon, size: 19),
+      title: Text(label, style: const TextStyle(fontSize: 14)),
+      onTap: onTap,
     );
   }
 }
