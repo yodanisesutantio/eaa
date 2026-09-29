@@ -1,22 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/app_settings.dart';
+import '../../core/currency_format.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme.dart';
+import '../transactions/models/transaction.dart';
+import '../transactions/providers/exchange_rates_provider.dart';
+import '../transactions/providers/transactions_provider.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends ConsumerStatefulWidget {
+  const HomeScreen({super.key, required this.settings});
+
+  final AppSettings settings;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _periodIndex = 1;
-  static const _periods = ['Today', 'This week', 'This month', 'YTD'];
+  late String _displayCurrency;
+  DateTimeRange? _customRange;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayCurrency = widget.settings.displayCurrencyCode;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final transactions = ref.watch(transactionsProvider);
+    final rates = ref.watch(exchangeRatesProvider('USD'));
+    final period = TransactionPeriod.values[_periodIndex];
+    final range = _customRange == null
+        ? TransactionPeriodRange.forPeriod(period)
+        : TransactionPeriodRange(
+            _customRange!.start,
+            _customRange!.end.add(const Duration(days: 1)),
+          );
+
     return Scaffold(
       appBar: AppBar(
         leading: Builder(
@@ -35,82 +61,252 @@ class _HomeScreenState extends State<HomeScreen> {
         label: const Text('Add transaction'),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-          children: [
-            Text(
-              'Good to see you.',
-              style: Theme.of(context).textTheme.bodySmall,
+        child: RefreshIndicator(
+          onRefresh: _refreshTransactions,
+          child: transactions.when(
+            loading: () => const _DashboardLoading(),
+            error: (error, _) => _DashboardMessage(
+              message: 'Could not load transactions.\n$error',
+              onRetry: () => ref.invalidate(transactionsProvider),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Your cash flow',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 20),
-            _PeriodSelector(
-              periods: _periods,
+            data: (items) => _DashboardContent(
+              items: items,
+              range: range,
+              rates: rates.asData?.value,
+              displayCurrency: _displayCurrency,
               selectedIndex: _periodIndex,
-              onChanged: (index) => setState(() => _periodIndex = index),
+              onPeriodChanged: (index) => setState(() {
+                _periodIndex = index;
+                _customRange = null;
+              }),
+              customRange: _customRange,
+              onCustomRangeChanged: (range) => setState(() {
+                _customRange = range;
+              }),
+              onDisplayCurrencyChanged: (code) {
+                setState(() => _displayCurrency = code);
+                widget.settings.setDisplayCurrency(code);
+              },
             ),
-            const SizedBox(height: 16),
-            const _BalanceCard(),
-            const SizedBox(height: 12),
-            const Row(
-              children: [
-                Expanded(
-                  child: _MetricCard(
-                    label: 'Income',
-                    amount: '\$2,480',
-                    icon: Icons.arrow_downward_rounded,
-                    accent: Color(0xFF16794A),
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _MetricCard(
-                    label: 'Expenses',
-                    amount: '\$1,925',
-                    icon: Icons.arrow_upward_rounded,
-                    accent: Color(0xFFB42318),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _SectionHeader(
-              title: 'Recent transactions',
-              action: TextButton(
-                onPressed: () {},
-                child: const Text('View all'),
-              ),
-            ),
-            const _TransactionPreview(
-              title: 'Groceries',
-              category: 'Food',
-              amount: '-\$48.40',
-              icon: Icons.shopping_basket_outlined,
-              isExpense: true,
-            ),
-            const _TransactionPreview(
-              title: 'Salary',
-              category: 'Income',
-              amount: '+\$2,480.00',
-              icon: Icons.payments_outlined,
-              isExpense: false,
-            ),
-            const _TransactionPreview(
-              title: 'Transport',
-              category: 'Travel',
-              amount: '-\$46.20',
-              icon: Icons.directions_car_outlined,
-              isExpense: true,
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Future<void> _refreshTransactions() async {
+    ref.invalidate(transactionsProvider);
+    await ref.read(transactionsProvider.future);
+  }
+}
+
+class _DashboardLoading extends StatelessWidget {
+  const _DashboardLoading();
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    physics: const AlwaysScrollableScrollPhysics(),
+    children: const [
+      SizedBox(height: 320, child: Center(child: CircularProgressIndicator())),
+    ],
+  );
+}
+
+class _DashboardContent extends StatelessWidget {
+  const _DashboardContent({
+    required this.items,
+    required this.range,
+    required this.rates,
+    required this.displayCurrency,
+    required this.selectedIndex,
+    required this.onPeriodChanged,
+    required this.onDisplayCurrencyChanged,
+    required this.customRange,
+    required this.onCustomRangeChanged,
+  });
+
+  final List<TransactionRecord> items;
+  final TransactionPeriodRange range;
+  final ExchangeRateSnapshot? rates;
+  final String displayCurrency;
+  final int selectedIndex;
+  final ValueChanged<int> onPeriodChanged;
+  final ValueChanged<String> onDisplayCurrencyChanged;
+  final DateTimeRange? customRange;
+  final ValueChanged<DateTimeRange> onCustomRangeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = items.where((item) => range.contains(item.occurredAt));
+    final visible = filtered.toList(growable: false);
+    final summary = displayCurrency == originalCurrency
+        ? null
+        : _convertedSummary(visible);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+      children: [
+        Text('Good to see you.', style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 4),
+        Text(
+          'Your cash flow',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _PeriodDropdown(
+                selectedIndex: selectedIndex,
+                hasCustomRange: customRange != null,
+                onPresetChanged: onPeriodChanged,
+                onCustomRangeChanged: onCustomRangeChanged,
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 86,
+              child: _DisplayCurrencyDropdown(
+                value: displayCurrency,
+                onChanged: onDisplayCurrencyChanged,
+              ),
+            ),
+          ],
+        ),
+        if (customRange != null) ...[
+          const SizedBox(height: 8),
+          _CustomRangeButton(
+            range: customRange,
+            onChanged: onCustomRangeChanged,
+          ),
+        ],
+        const SizedBox(height: 20),
+        _BalanceCard(
+          amount: summary == null
+              ? displayCurrency == originalCurrency
+                    ? 'Original'
+                    : '—'
+              : formatCurrency(summary.net, displayCurrency),
+          currency: displayCurrency,
+          isPositive: summary == null ? null : summary.net >= 0,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                label: 'Income',
+                amount: summary == null
+                    ? displayCurrency == originalCurrency
+                          ? 'Original'
+                          : '—'
+                    : formatCurrency(summary.income, displayCurrency),
+                icon: Icons.arrow_downward_rounded,
+                accent: const Color(0xFF16794A),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                label: 'Expenses',
+                amount: summary == null
+                    ? displayCurrency == originalCurrency
+                          ? 'Original'
+                          : '—'
+                    : formatCurrency(summary.expenses, displayCurrency),
+                icon: Icons.arrow_upward_rounded,
+                accent: const Color(0xFFB42318),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _SectionHeader(
+          title: 'Transactions',
+          action: Text(
+            '${visible.length}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        if (visible.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: Text('No transactions in this period.')),
+          )
+        else
+          for (var index = 0; index < visible.length; index++) ...[
+            if (index == 0 ||
+                !_sameDate(
+                  visible[index - 1].occurredAt,
+                  visible[index].occurredAt,
+                ))
+              _DateHeader(date: visible[index].occurredAt),
+            _TransactionPreview(
+              transaction: visible[index],
+              convertedAmount: rates?.convert(
+                visible[index].amount,
+                visible[index].currency,
+                displayCurrency,
+              ),
+              displayCurrency: displayCurrency,
+            ),
+          ],
+      ],
+    );
+  }
+
+  TransactionSummary? _convertedSummary(List<TransactionRecord> visible) {
+    if (rates == null) return null;
+    var income = 0.0;
+    var expenses = 0.0;
+    for (final transaction in visible) {
+      final amount = rates!.convert(
+        transaction.amount,
+        transaction.currency,
+        displayCurrency,
+      );
+      if (amount == null) return null;
+      if (transaction.isExpense) {
+        expenses += amount;
+      } else {
+        income += amount;
+      }
+    }
+    return TransactionSummary(income: income, expenses: expenses);
+  }
+}
+
+class _DashboardMessage extends StatelessWidget {
+  const _DashboardMessage({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    physics: const AlwaysScrollableScrollPhysics(),
+    children: [
+      SizedBox(
+        height: 320,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(message, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 class _AppDrawer extends StatelessWidget {
@@ -278,70 +474,93 @@ class _DrawerItem extends StatelessWidget {
   }
 }
 
-class _PeriodSelector extends StatelessWidget {
-  const _PeriodSelector({
-    required this.periods,
+class _PeriodDropdown extends StatelessWidget {
+  const _PeriodDropdown({
     required this.selectedIndex,
-    required this.onChanged,
+    required this.hasCustomRange,
+    required this.onPresetChanged,
+    required this.onCustomRangeChanged,
   });
-  final List<String> periods;
+
   final int selectedIndex;
-  final ValueChanged<int> onChanged;
+  final bool hasCustomRange;
+  final ValueChanged<int> onPresetChanged;
+  final ValueChanged<DateTimeRange> onCustomRangeChanged;
+
+  @override
+  Widget build(BuildContext context) => DropdownButtonFormField<String>(
+    initialValue: hasCustomRange
+        ? 'Custom'
+        : TransactionPeriod.values[selectedIndex].label,
+    decoration: const InputDecoration(labelText: 'Period'),
+    items: [
+      ...TransactionPeriod.values.map(
+        (period) =>
+            DropdownMenuItem(value: period.label, child: Text(period.label)),
+      ),
+      const DropdownMenuItem(value: 'Custom', child: Text('Custom')),
+    ],
+    onChanged: (value) async {
+      if (value == null) return;
+      if (value == 'Custom') {
+        final selected = await showDateRangePicker(
+          context: context,
+          firstDate: DateTime(2000),
+          lastDate: DateTime.now(),
+        );
+        if (selected != null) onCustomRangeChanged(selected);
+        return;
+      }
+      final index = TransactionPeriod.values
+          .map((period) => period.label)
+          .toList()
+          .indexOf(value);
+      if (index >= 0) onPresetChanged(index);
+    },
+  );
+}
+
+class _CustomRangeButton extends StatelessWidget {
+  const _CustomRangeButton({required this.range, required this.onChanged});
+
+  final DateTimeRange? range;
+  final ValueChanged<DateTimeRange> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Row(
-        children: [
-          for (var index = 0; index < periods.length; index++)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  padding: const EdgeInsets.symmetric(vertical: 9),
-                  decoration: BoxDecoration(
-                    color: selectedIndex == index
-                        ? Theme.of(context).colorScheme.surface
-                        : null,
-                    borderRadius: BorderRadius.circular(5),
-                    boxShadow: selectedIndex == index
-                        ? const [
-                            BoxShadow(
-                              color: Color(0x12000000),
-                              blurRadius: 3,
-                              offset: Offset(0, 1),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Text(
-                    periods[index],
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: selectedIndex == index
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
+    final label = range == null
+        ? 'Choose dates'
+        : '${DateFormat('dd/MM/yyyy').format(range!.start)} > '
+              '${DateFormat('dd/MM/yyyy').format(range!.end)}';
+    return Align(
+      alignment: Alignment.center,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          final selected = await showDateRangePicker(
+            context: context,
+            firstDate: DateTime(2000),
+            lastDate: DateTime.now(),
+            initialDateRange: range,
+          );
+          if (selected != null) onChanged(selected);
+        },
+        icon: const Icon(Icons.date_range_outlined, size: 18),
+        label: Text(label),
       ),
     );
   }
 }
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard();
+  const _BalanceCard({
+    required this.amount,
+    required this.currency,
+    required this.isPositive,
+  });
+
+  final String amount;
+  final String currency;
+  final bool? isPositive;
 
   @override
   Widget build(BuildContext context) {
@@ -363,7 +582,7 @@ class _BalanceCard extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            '\$555.00',
+            amount,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onInverseSurface,
               fontSize: 30,
@@ -374,14 +593,29 @@ class _BalanceCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.trending_up_rounded,
-                color: Color(0xFF86EFAC),
+                isPositive == null
+                    ? Icons.remove_rounded
+                    : isPositive!
+                    ? Icons.trending_up_rounded
+                    : Icons.trending_down_rounded,
+                color: isPositive == null
+                    ? Theme.of(context).colorScheme.onInverseSurface
+                    : isPositive!
+                    ? const Color(0xFF86EFAC)
+                    : const Color(0xFFFCA5A5),
                 size: 16,
               ),
               SizedBox(width: 5),
               Text(
-                '12.5% from last period',
-                style: TextStyle(color: Color(0xFF86EFAC), fontSize: 12),
+                isPositive == null ? 'Original currencies' : currency,
+                style: TextStyle(
+                  color: isPositive == null
+                      ? Theme.of(context).colorScheme.onInverseSurface
+                      : isPositive!
+                      ? const Color(0xFF86EFAC)
+                      : const Color(0xFFFCA5A5),
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -446,21 +680,17 @@ class _SectionHeader extends StatelessWidget {
 
 class _TransactionPreview extends StatelessWidget {
   const _TransactionPreview({
-    required this.title,
-    required this.category,
-    required this.amount,
-    required this.icon,
-    required this.isExpense,
+    required this.transaction,
+    required this.convertedAmount,
+    required this.displayCurrency,
   });
-  final String title;
-  final String category;
-  final String amount;
-  final IconData icon;
-  final bool isExpense;
+  final TransactionRecord transaction;
+  final double? convertedAmount;
+  final String displayCurrency;
 
   @override
   Widget build(BuildContext context) {
-    final accent = isExpense
+    final accent = transaction.isExpense
         ? const Color(0xFFB42318)
         : const Color(0xFF16794A);
     return Container(
@@ -475,7 +705,12 @@ class _TransactionPreview extends StatelessWidget {
             backgroundColor: Theme.of(context)
                 .colorScheme
                 .surfaceContainerHighest,
-            child: Icon(icon, size: 19),
+            child: Icon(
+              transaction.isExpense
+                  ? Icons.receipt_long_outlined
+                  : Icons.payments_outlined,
+              size: 19,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -483,20 +718,86 @@ class _TransactionPreview extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  transaction.note?.isNotEmpty == true
+                      ? transaction.note!
+                      : transaction.category ?? 'Transaction',
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 3),
-                Text(category, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  '${transaction.category ?? 'Uncategorized'} · ${transaction.occurredAt.month}/${transaction.occurredAt.day}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ),
           ),
-          Text(
-            amount,
-            style: TextStyle(color: accent, fontWeight: FontWeight.w600),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${transaction.isExpense ? '-' : '+'}${formatCurrency(transaction.amount, transaction.currency)}',
+                style: TextStyle(color: accent, fontWeight: FontWeight.w600),
+              ),
+              if (convertedAmount != null &&
+                  displayCurrency != originalCurrency &&
+                  transaction.currency != displayCurrency)
+                Text(
+                  '${transaction.isExpense ? '-' : '+'}${formatCurrency(convertedAmount!, displayCurrency)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
           ),
         ],
       ),
     );
   }
 }
+
+const originalCurrency = 'ORIGINAL';
+
+class _DisplayCurrencyDropdown extends StatelessWidget {
+  const _DisplayCurrencyDropdown({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => DropdownButton<String>(
+    value: value,
+    underline: const SizedBox.shrink(),
+    isDense: true,
+    items: [
+      const DropdownMenuItem(value: originalCurrency, child: Text('Original')),
+      ...AppSettings.supportedCurrencies.keys.map(
+        (code) => DropdownMenuItem(value: code, child: Text(code)),
+      ),
+    ],
+    onChanged: (code) {
+      if (code != null) onChanged(code);
+    },
+  );
+}
+
+class _DateHeader extends StatelessWidget {
+  const _DateHeader({required this.date});
+
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 16, bottom: 4),
+    child: Text(
+      DateFormat('EEEE, MMM d').format(date),
+      style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(fontWeight: FontWeight.w600),
+    ),
+  );
+}
+
+bool _sameDate(DateTime first, DateTime second) =>
+    first.year == second.year &&
+    first.month == second.month &&
+    first.day == second.day;

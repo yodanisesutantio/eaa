@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/app_settings.dart';
+import '../../../core/amount_input_formatter.dart';
+import '../../../core/currency_format.dart';
 import '../models/transaction.dart';
 import '../providers/transactions_provider.dart';
 
@@ -53,25 +55,58 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     });
 
     try {
-      await ref
-          .read(transactionsRepositoryProvider)
-          .addTransaction(
-            TransactionInput(
-              type: _type,
-              amount: double.parse(_amountController.text.trim()),
-              currency: _currency!,
-              category: _category,
-              note: _noteController.text.trim().isEmpty
-                  ? null
-                  : _noteController.text.trim(),
-              occurredAt: _occurredAt,
-            ),
-          );
+      final repository = ref.read(transactionsRepositoryProvider);
+      await repository.addTransaction(
+        TransactionInput(
+          type: _type,
+          amount: parseAmount(_amountController.text)!,
+          currency: _currency!,
+          category: _category,
+          note: _noteController.text.trim().isEmpty
+              ? null
+              : _noteController.text.trim(),
+          occurredAt: _occurredAt,
+        ),
+      );
+      ref.invalidate(transactionsProvider);
       if (mounted) context.pop();
     } on PostgrestException catch (error) {
-      setState(() => _error = error.message);
+      final errorId = await ref
+          .read(transactionsRepositoryProvider)
+          .recordError(
+            code: error.code,
+            message: error.message,
+            details: {
+              'operation': 'create_transaction',
+              'currency': _currency,
+              'type': _type,
+            },
+          );
+      if (mounted) {
+        setState(
+          () => _error = errorId == null
+              ? 'Could not save the transaction. Please try again.'
+              : 'Could not save the transaction. Reference: $errorId',
+        );
+      }
     } catch (error) {
-      setState(() => _error = error.toString());
+      final errorId = await ref
+          .read(transactionsRepositoryProvider)
+          .recordError(
+            message: error.toString(),
+            details: {
+              'operation': 'create_transaction',
+              'currency': _currency,
+              'type': _type,
+            },
+          );
+      if (mounted) {
+        setState(
+          () => _error = errorId == null
+              ? 'Could not save the transaction. Please try again.'
+              : 'Could not save the transaction. Reference: $errorId',
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -137,12 +172,13 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      inputFormatters: const [AmountInputFormatter()],
                       decoration: InputDecoration(
                         labelText: 'Amount',
-                        prefixText: '${_currencySymbol(_currency!)} ',
+                        prefixText: '${currencySymbol(_currency!)} ',
                       ),
                       validator: (value) {
-                        final amount = double.tryParse(value?.trim() ?? '');
+                        final amount = parseAmount(value);
                         if (amount == null || amount <= 0) {
                           return 'Enter an amount greater than 0';
                         }
@@ -214,41 +250,6 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       setState(() => _occurredAt = picked);
     }
   }
-}
-
-String _currencySymbol(String code) {
-  return switch (code) {
-    'EUR' => '€',
-    'GBP' => '£',
-    'JPY' => '¥',
-    'CAD' => 'CA\$',
-    'AUD' => 'A\$',
-    'CHF' => 'CHF',
-    'CNY' => '¥',
-    'HKD' => 'HK\$',
-    'NZD' => 'NZ\$',
-    'SGD' => 'S\$',
-    'INR' => '₹',
-    'KRW' => '₩',
-    'IDR' => 'Rp',
-    'BRL' => 'R\$',
-    'MXN' => 'MX\$',
-    'ZAR' => 'R',
-    'SEK' => 'kr',
-    'NOK' => 'kr',
-    'DKK' => 'kr',
-    'PLN' => 'zł',
-    'CZK' => 'Kč',
-    'HUF' => 'Ft',
-    'TRY' => '₺',
-    'AED' => 'د.إ',
-    'SAR' => '﷼',
-    'THB' => '฿',
-    'MYR' => 'RM',
-    'PHP' => '₱',
-    'VND' => '₫',
-    _ => '\$',
-  };
 }
 
 class _TypeToggle extends StatelessWidget {

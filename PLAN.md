@@ -45,14 +45,14 @@ Settings note: language and default currency preferences are persisted locally;
 each new transaction can override the default currency.
 
 ### Phase 3 — List + Period Filters (~6–8 hrs)
-- [ ] Fetch transactions scoped to logged-in user
-- [ ] Filter/query by day, week, month, year-to-date
-- [ ] Show running totals: income, expense, net for selected period
-- [ ] Transaction list UI (grouped by date, swipe to delete/edit optional)
-- [ ] Add a dashboard exchange-rate card with a chosen base/quote pair
-- [ ] Add a dashboard display-currency selector; original currency keeps entries
+- [x] Fetch transactions scoped to logged-in user
+- [x] Filter/query by day, week, month, year-to-date
+- [x] Show running totals: income, expense, net for selected period
+- [x] Transaction list UI grouped by date (swipe to delete/edit remains optional)
+- [x] Add a dashboard exchange-rate card with a chosen base/quote pair
+- [x] Add a dashboard display-currency selector; original currency keeps entries
   such as `+$400` and `-€21`, while USD conversion could show `+$400` and `-$18.44`
-- [ ] Decide and implement an exchange-rate source with cached/offline fallback
+- [x] Use the public ExchangeRate-API endpoint with 24-hour cached/offline fallback
 
 ### Phase 4 — Charts (~4–6 hrs)
 - [ ] Bar or line chart of net flow over selected period using `fl_chart`

@@ -31,7 +31,10 @@ class _ExpenseAppState extends State<ExpenseApp> {
     },
     routes: [
       GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
-      GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+      GoRoute(
+        path: '/home',
+        builder: (context, state) => HomeScreen(settings: widget.settings),
+      ),
       GoRoute(
         path: '/transactions/add',
         builder: (context, state) =>

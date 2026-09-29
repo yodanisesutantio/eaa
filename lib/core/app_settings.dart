@@ -52,6 +52,10 @@ class AppSettings extends ChangeNotifier {
 
   String get languageCode => _preferences.getString('language_code') ?? 'en';
   String get currencyCode => _preferences.getString('currency_code') ?? 'USD';
+  String get displayCurrencyCode =>
+      _preferences.getString('display_currency_code') ?? 'ORIGINAL';
+  String get exchangeBaseCurrencyCode =>
+      _preferences.getString('exchange_base_currency_code') ?? 'USD';
   String get appearance => _preferences.getString('appearance') ?? 'light';
 
   static Future<AppSettings> load() async {
@@ -65,6 +69,16 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> setCurrency(String code) async {
     await _preferences.setString('currency_code', code);
+    notifyListeners();
+  }
+
+  Future<void> setDisplayCurrency(String code) async {
+    await _preferences.setString('display_currency_code', code);
+    notifyListeners();
+  }
+
+  Future<void> setExchangeBaseCurrency(String code) async {
+    await _preferences.setString('exchange_base_currency_code', code);
     notifyListeners();
   }
 
